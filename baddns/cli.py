@@ -134,7 +134,10 @@ async def _main():
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("-D", "--direct", action="store_true", help="Enable direct mode")
 
-    parser.add_argument("target", nargs="?", type=validate_target, help="subdomain to analyze")
+    parser.add_argument("-f", "--file", help="File containing list of subdomains to check")
+
+    parser.add_argument("-t", "--target", nargs="+", type=validate_target, help="subdomain to analyze")
+
     args = parser.parse_args()
 
     silent = bool(args.silent)
@@ -145,8 +148,11 @@ async def _main():
         print(f"{Fore.GREEN}{ascii_art_banner}{Style.RESET_ALL}")
         print_version()
 
-    if not args.target and not args.list_modules:
-        parser.error("the following arguments are required: target")
+    if not args.file and not args.target and not args.list_modules:
+        parser.error("the following arguments are required: target, file, or list-modules")
+
+    if args.file and args.target:
+        parser.error("Please provide either a target or a file, not both")
 
     if args.list_modules:
         r = get_all_modules()
@@ -194,10 +200,16 @@ async def _main():
 
     signatures = load_signatures(signatures_dir=custom_signatures)
 
-    for ModuleClass in modules_to_execute:
-        await execute_module(
-            ModuleClass, args.target, custom_nameservers, signatures, silent=silent, direct_mode=direct_mode
-        )
+    if args.file:
+        with open(args.file, "r") as f:
+            target_list = [line.strip() for line in f.readlines()]
+    else:
+        target_list = args.target
+    for cur_target in target_list:
+        for ModuleClass in modules_to_execute:
+            await execute_module(
+                ModuleClass, cur_target, custom_nameservers, signatures, silent=silent, direct_mode=direct_mode
+            )
 
 
 def main():
